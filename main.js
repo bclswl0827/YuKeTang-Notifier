@@ -12,8 +12,9 @@
 // @run-at       document-end
 // ==/UserScript==
 
-// 钉钉机器人 WebHook 参数和关键字
+// 钉钉机器人 Webhook 参数
 var myToken = '';
+// 触发机器人用的关键字
 var myKeyword = '';
 
 // 钉钉机器人 API 地址
@@ -35,23 +36,24 @@ function checkSent() {
 // 构造定时器，30s 跑一次
 setInterval(checkSent(), 30000);
 
-// 构造一个定时器，1s 执行一次，监听随堂练习的 Class
+// 检测是否存在随堂练习的 class
 function listenQuiz() {
     // 1. 弹窗提醒 class：pl10 f16 cfff
     // 2. 倒计时框 class：timing f24
     // 任有其一即可
-    setInterval(function() {
-        var quizNotify = document.getElementsByClassName('pl10 f16 cfff')[0],
-            quizTime = document.getElementsByClassName('timing f24')[0];
-        if (quizNotify || quizTime) {
-            console.log('检测到新题目');
-            createMsg();
-        } else {
-            console.log('没有检测到新题目');
-        }
-    }, 1000);
+    var quizNotify = document.getElementsByClassName('pl10 f16 cfff')[0],
+        quizTime = document.getElementsByClassName('timing f24')[0];
+    if (quizNotify || quizTime) {
+        console.log('检测到新题目');
+        createMsg();
+    } else {
+        console.log('没有检测到新题目');
+    }
+    return listenQuiz;
 }
-listenQuiz();
+
+// 构造定时器，1s 跑一次
+setInterval(listenQuiz();, 1000);
 
 // 创建用于推送的讯息并推送出去
 function createMsg() {
@@ -65,11 +67,13 @@ function createMsg() {
         markdown: {
             title: '快！有新题目啦',
             text: '![thumbnail](' + myCover + ')' +
-                '\n\n### 别摸鱼了！\n\n' + getTime() +
-                '\n\n 当前科目：' + document.getElementsByTagName('title')[0].innerText +
-                '\n\n 当前课程：「' + document.getElementsByClassName('f16')[0].innerText + '」\n\n' +
-                '[点击链接前往课程答题](' + window.location.href + ')（仅 Web 端）\n\n' +
-                ' 本讯息发送自：' + myKeyword
+                '\n\n## 来活了，别摸鱼啦！' + 
+                '\n\n**当前时间：' + getTime() +
+                '\n\n距结束还有：' + document.getElementsByClassName('timing f24')[0].innerText + '**' +
+                '\n\n当前科目：「' + document.getElementsByTagName('title')[0].innerText + '」' +
+                '\n\n当前课程：「' + document.getElementsByClassName('f16')[0].innerText + '」' +
+                '\n\n[点击链接前往课程答题](' + window.location.href + ')（仅 Web 端）' +
+                '\n\n本讯息发送自：' + myKeyword
         }
     };
     // 调用发送函数
