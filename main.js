@@ -41,8 +41,8 @@ if (!document.getElementById('qrcode')) {
 }
 // 初始化二维码对象
 var myQrcode = new QRCode(document.getElementById('qrcode'), {
-    width: 128,
-    height: 128,
+    width: 80,
+    height: 80,
     colorDark: "#000000",
     colorLight: "#ffffff",
     correctLevel: QRCode.CorrectLevel.H
@@ -51,7 +51,7 @@ var myQrcode = new QRCode(document.getElementById('qrcode'), {
 // 判断前 30s 是否已经推送过
 function checkSent() {
     isSent = false;
-    console.log('推送服务已重置');
+    console.log(' 推送服务已重置');
     return checkSent;
 }
 
@@ -68,7 +68,7 @@ function listenQuiz() {
         //unlimitQuiz = true; // 提示用户存在不限时练习
         quizTime = null;
     } else if (quizTime != undefined) {
-        if (quizTime.innerText == '作答已结束' || quizTime.innerText == '倒计时 --:--') {
+        if (quizTime.innerText == ' 作答已结束' || quizTime.innerText == ' 倒计时 --:--') {
             quizTime = null;
         }
     }
@@ -78,10 +78,10 @@ function listenQuiz() {
         if (quizNotify) {
             document.getElementsByClassName('box-start')[0].click();
         }
-        console.log('检测到新题目');
+        console.log(' 检测到新题目');
         createMsg();
     } else {
-        console.log('没有检测到新题目');
+        console.log(' 没有检测到新题目');
     }
     return listenQuiz;
 }
@@ -92,7 +92,7 @@ setInterval(listenQuiz(), 1000);
 // 构造移动端 URL
 function convertLink(pcLink) {
     // 寻找数组中最长字符串作为 ID
-    longString = function(arr) {
+    longString = function (arr) {
         let longest = arr[0];
         for (let i = 1; i < arr.length; i++) {
             if (arr[i].length > longest.length) {
@@ -119,10 +119,10 @@ function createMsg() {
     // 检查不限时练习存在情况
     var freeQuiz, timeRemain;
     if (unlimitQuiz == true) {
-        freeQuiz = '存在';
-        timeRemain = '未知'
+        freeQuiz = ' 存在';
+        timeRemain = ' 未知'
     } else {
-        freeQuiz = '不存在';
+        freeQuiz = ' 不存在';
         timeRemain = document.getElementsByClassName('timing')[0].innerText
     }
     // 准备渲染即时讯息模板
@@ -136,22 +136,22 @@ function createMsg() {
             isAtAll: true
         },
         markdown: {
-            title: '快！有新题目啦',
+            title: ' 快！有新题目啦',
             text: '![thumbnail](' + myCover + ')' +
                 '\n\n## 来活了，别摸鱼啦！' +
-                '\n\n当前时间：' + getTime() +
-                '\n\n这是本堂课的第 ' + document.getElementsByClassName('timeline__footer box-between cfff').length + ' 个问题' +
-                '\n\n是否存在不限时练习：' + freeQuiz +
-                '\n\n距结束还有：' + timeRemain +
-                '\n\n当前科目：「' + document.getElementsByTagName('title')[0].innerText + '」' +
-                '\n\n当前课程：「' + document.getElementsByClassName('f16')[0].innerText + '」' +
-                '\n\n[PC 端课程链接](' + pcLink + ')' +
-                '\n\n[移动端课程链接](' + mobiLink + ')' +
-                '\n\n移动端亦可在下方扫码进入' +
+                '\n\n 当前时间：' + getTime() +
+                '\n\n 这是本堂课的第 ' + document.getElementsByClassName('timeline__footer box-between cfff').length + ' 个问题' +
+                '\n\n 是否存在不限时练习：' + freeQuiz +
+                '\n\n 距结束还有：' + timeRemain +
+                '\n\n 当前科目：「' + document.getElementsByTagName('title')[0].innerText + '」' +
+                '\n\n 当前课程：「' + document.getElementsByClassName('f16')[0].innerText + '」' +
+                '\n\n [PC 端课程链接](' + pcLink + ')' +
+                '\n\n [移动端课程链接](' + mobiLink + ')' +
+                '\n\n 移动端亦可在下方扫码进入' +
                 '\n\n![QR-Code][myqrcode]' +
-                '\n\n在限时练习未结束前，本讯息 30s 后会再次推送' +
-                '\n\n以上资讯仅供参考，发送自：' + myKeyword +
-                '\n\n[myqrcode]:createQr(mobiLink)'
+                '\n\n 在限时练习未结束前，本讯息 30s 后会再次推送' +
+                '\n\n 以上资讯仅供参考，发送自：' + myKeyword +
+                '\n\n[myqrcode]:' + createQr(mobiLink)
         }
     };
     // 调用发送函数
@@ -181,7 +181,7 @@ function pushMsg(myApi, sendMsg) {
             url: myApi,
             data: JSON.stringify(sendMsg)
         });
-        console.log('已经推送到钉钉群');
+        console.log(' 已经推送到钉钉群');
         // 最后将 isSent 改为 true
         isSent = true;
     }
