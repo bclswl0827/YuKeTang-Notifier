@@ -4,6 +4,7 @@
 // @version      v1.0.0
 // @license      MIT
 // @require      https://cdn.staticfile.org/jquery/3.5.1/jquery.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js
 // @grant        GM_addStyle
 // @grant        GM_getResourceText
 // @grant        GM_xmlhttpRequest
@@ -26,6 +27,27 @@ var myCover = 'https://api.isoyu.com/bing_images.php';
 // 记录是否推送的 Flag，默认 false
 var isSent = false;
 
+// 检查是否存在不限时练习
+var unlimitQuiz = false;
+
+// 若不存在 id 为 qrcode 的 div，则创建
+if (!document.getElementById('qrcode')) {
+    // 先在 id 为 app 的 div 后插入 id 为 qrcode 的新 div，设置不可见
+    var currentNode = document.getElementById('app');
+    var newNode = document.createElement('div');
+    newNode.setAttribute('id', 'qrcode');
+    newNode.setAttribute('style', 'display: none;');
+    currentNode.parentNode.insertBefore(newNode, currentNode.nextSibling);
+}
+// 初始化二维码对象
+var myQrcode = new QRCode(document.getElementById('qrcode'), {
+    width: 128,
+    height: 128,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
+});
+
 // 判断前 30s 是否已经推送过
 function checkSent() {
     isSent = false;
@@ -38,12 +60,24 @@ setInterval(checkSent(), 30000);
 
 // 检测是否存在随堂练习的 class
 function listenQuiz() {
-    // 1. 弹窗提醒 class：pl10 f16 cfff
-    // 2. 倒计时框 class：timing f24
-    // 任有其一即可
+    // 弹窗提醒 class：pl10 f16 cfff || 倒计时框 class：timing
     var quizNotify = document.getElementsByClassName('pl10 f16 cfff')[0],
-        quizTime = document.getElementsByClassName('timing f24')[0];
+        quizTime = document.getElementsByClassName('timing')[0];
+    // 排除不限时练习的情况，忽略已结束的练习
+    if (quizTime != undefined && quizTime.className == 'timing willEnd') {
+        unlimitQuiz = true; // 提示用户存在不限时练习
+        quizTime = null;
+    } else if (quizTime != undefined) {
+        if (quizTime.innerText == '作答已结束' || quizTime.innerText == '倒计时 --:--') {
+            quizTime = null;
+        }
+    }
+    // 只要存在一种情况就推送讯息
     if (quizNotify || quizTime) {
+        // 弹窗提醒时先切换到弹窗对应的页面
+        if (quizNotify) {
+            document.getElementsByClassName('box-start')[0].click();
+        }
         console.log('检测到新题目');
         createMsg();
     } else {
@@ -55,8 +89,44 @@ function listenQuiz() {
 // 构造定时器，1s 跑一次
 setInterval(listenQuiz(), 1000);
 
+// 构造移动端 URL
+function convertLink(pcLink) {
+    // 寻找数组中最长字符串作为 ID
+    longString = function(arr) {
+        let longest = arr[0];
+        for (let i = 1; i < arr.length; i++) {
+            if (arr[i].length > longest.length) {
+                longest = arr[i];
+            }
+        }
+        return longest;
+    }
+    var classId = longString(pcLink.match(/\d{2,}/g));
+    var mobiLink = 'https://changjiang.yuketang.cn/lesson/student/v3/' + classId;
+    return mobiLink;
+}
+
+// 创建用于移动端登入的二维码
+function createQr(targetUri) {
+    // 获取 Base64 输出
+    myQrcode.makeCode(targetUri);
+    var base64Output = document.getElementById('qrcode').childNodes[1].getAttribute('src');
+    return base64Output;
+}
+
 // 创建用于推送的讯息并推送出去
 function createMsg() {
+    // 检查不限时练习存在情况
+    if (unlimitQuiz == true) {
+        var freeQuiz = '存在';
+        var timeRemain = '未知'
+    } else {
+        var freeQuiz = '不存在';
+        var timeRemain = document.getElementsByClassName('timing')[0].innerText
+    }
+    // 准备渲染即时讯息模板
+    var pcLink = window.location.href;
+    var mobiLink = convertLink(pcLink);
     var myMsg = {
         // MarkDown 格式
         msgtype: 'markdown',
@@ -67,13 +137,19 @@ function createMsg() {
         markdown: {
             title: '快！有新题目啦',
             text: '![thumbnail](' + myCover + ')' +
-                '\n\n## 来活了，别摸鱼啦！' + 
-                '\n\n**当前时间：' + getTime() +
-                '\n\n距结束还有：' + document.getElementsByClassName('timing f24')[0].innerText + '**' +
+                '\n\n## 来活了，别摸鱼啦！' +
+                '\n\n当前时间：' + getTime() +
+                '\n\n这是本堂课的第 ' + document.getElementsByClassName('timeline__footer box-between cfff').length + ' 个问题' +
+                '\n\n是否存在不限时练习：' + freeQuiz +
+                '\n\n距结束还有：' + timeRemain +
                 '\n\n当前科目：「' + document.getElementsByTagName('title')[0].innerText + '」' +
                 '\n\n当前课程：「' + document.getElementsByClassName('f16')[0].innerText + '」' +
-                '\n\n[点击链接前往课程答题](' + window.location.href + ')（仅 Web 端）' +
-                '\n\n本讯息发送自：' + myKeyword
+                '\n\n[PC 端课程链接](' + pcLink + ')' +
+                '\n\n[移动端课程链接](' + mobiLink + ')' +
+                '\n\n移动端亦可在下方扫码进入' +
+                '\n\n![QR-Code][' + createQr(mobiLink) + ']' +
+                '\n\n在限时练习未结束前，本讯息 30s 后会再次推送' +
+                '\n\n以上资讯仅供参考，发送自：' + myKeyword
         }
     };
     // 调用发送函数
@@ -97,7 +173,7 @@ function pushMsg(myApi, sendMsg) {
     if (isSent == false) {
         $.ajax({
             contentType: "application/json; charset=utf-8",
-            dataType: 'application/json',
+            dataType: 'json',
             type: 'POST',
             async: true,
             url: myApi,
