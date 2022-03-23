@@ -53,7 +53,7 @@ function listenQuiz() {
 }
 
 // 构造定时器，1s 跑一次
-setInterval(listenQuiz();, 1000);
+setInterval(listenQuiz(), 1000);
 
 // 创建用于推送的讯息并推送出去
 function createMsg() {
