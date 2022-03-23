@@ -16,7 +16,7 @@
 var myToken = '';
 var myKeyword = '';
 
-// 钉钉机器人 API 地址（需反代才能允许 CORS）
+// 钉钉机器人 API 地址
 var myApi = 'https://d.ibcl.us/robot/send?access_token=' + myToken;
 
 // 封面随机图片 API
@@ -28,7 +28,7 @@ var isSent = false;
 // 判断前 30s 是否已经推送过
 function checkSent() {
     isSent = false;
-    console.log(' 推送服务已重置');
+    console.log('推送服务已重置');
     return checkSent;
 }
 
@@ -44,10 +44,10 @@ function listenQuiz() {
         var quizNotify = document.getElementsByClassName('pl10 f16 cfff')[0],
             quizTime = document.getElementsByClassName('timing f24')[0];
         if (quizNotify || quizTime) {
-            console.log(' 检测到新题目');
+            console.log('检测到新题目');
             createMsg();
         } else {
-            console.log(' 没有检测到新题目');
+            console.log('没有检测到新题目');
         }
     }, 1000);
 }
@@ -63,7 +63,7 @@ function createMsg() {
             isAtAll: true
         },
         markdown: {
-            title: ' 快！有新题目啦',
+            title: '快！有新题目啦',
             text: '![thumbnail](' + myCover + ')' +
                 '\n\n### 别摸鱼了！\n\n' + getTime() +
                 '\n\n 当前科目：' + document.getElementsByTagName('title')[0].innerText +
@@ -99,7 +99,7 @@ function pushMsg(myApi, sendMsg) {
             url: myApi,
             data: JSON.stringify(sendMsg)
         });
-        console.log(' 已经推送到钉钉群');
+        console.log('已经推送到钉钉群');
         // 最后将 isSent 改为 true
         isSent = true;
     }
