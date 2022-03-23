@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         雨阔塘课堂限时练习提醒
- // @version     v1.0.0
+// @description  雨阔塘课堂限时练习提醒
+// @version      v1.0.0
 // @license      MIT
 // @require      https://cdn.staticfile.org/jquery/3.5.1/jquery.min.js
 // @grant        GM_addStyle
@@ -12,11 +13,11 @@
 // ==/UserScript==
 
 // 钉钉机器人 WebHook 参数和关键字
- var myToken = '';
+var myToken = '';
 var myKeyword = '';
 
 // 钉钉机器人 API 地址（需反代才能允许 CORS）
- var myApi = 'https://d.ibcl.us/robot/send?access_token=' + myToken;
+var myApi = 'https://d.ibcl.us/robot/send?access_token=' + myToken;
 
 // 封面随机图片 API
 var myCover = 'https://api.isoyu.com/bing_images.php';
@@ -25,21 +26,21 @@ var myCover = 'https://api.isoyu.com/bing_images.php';
 var isSent = false;
 
 // 判断前 30s 是否已经推送过
- function checkSent() {
+function checkSent() {
     isSent = false;
     console.log(' 推送服务已重置');
     return checkSent;
 }
 
 // 构造定时器，30s 跑一次
- setInterval(checkSent(), 30000);
+setInterval(checkSent(), 30000);
 
 // 构造一个定时器，1s 执行一次，监听随堂练习的 Class
 function listenQuiz() {
     // 1. 弹窗提醒 class：pl10 f16 cfff
     // 2. 倒计时框 class：timing f24
     // 任有其一即可
-     setInterval(function() {
+    setInterval(function() {
         var quizNotify = document.getElementsByClassName('pl10 f16 cfff')[0],
             quizTime = document.getElementsByClassName('timing f24')[0];
         if (quizNotify || quizTime) {
@@ -53,13 +54,13 @@ function listenQuiz() {
 listenQuiz();
 
 // 创建用于推送的讯息并推送出去
- function createMsg() {
+function createMsg() {
     var myMsg = {
         // MarkDown 格式
-         msgtype: 'markdown',
+        msgtype: 'markdown',
         at: {
             // [at] 所有人
-             isAtAll: true
+            isAtAll: true
         },
         markdown: {
             title: ' 快！有新题目啦',
@@ -72,11 +73,11 @@ listenQuiz();
         }
     };
     // 调用发送函数
-     pushMsg(myApi, myMsg);
+    pushMsg(myApi, myMsg);
 }
 
 // 获取题目发布的时间
- function getTime() {
+function getTime() {
     var timeNow = new Date();
     var getMonth = (timeNow.getMonth() + 1).toString().padStart(2, '0');
     var getDate = timeNow.getDate().toString().padStart(2, '0');
@@ -87,9 +88,9 @@ listenQuiz();
 }
 
 // 推送讯息到钉钉
- function pushMsg(myApi, sendMsg) {
+function pushMsg(myApi, sendMsg) {
     // 先判断之前是否已经推送
-     if (isSent == false) {
+    if (isSent == false) {
         $.ajax({
             contentType: "application/json; charset=utf-8",
             dataType: 'application/json',
