@@ -41,11 +41,10 @@ if (!document.getElementById('qrcode')) {
 }
 // 初始化二维码对象
 var myQrcode = new QRCode(document.getElementById('qrcode'), {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
     colorDark: "#000000",
-    colorLight: "#ffffff",
-    correctLevel: QRCode.CorrectLevel.H
+    colorLight: "#ffffff"
 });
 
 // 判断前 30s 是否已经推送过
