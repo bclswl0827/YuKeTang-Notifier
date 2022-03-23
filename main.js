@@ -65,7 +65,7 @@ function listenQuiz() {
         quizTime = document.getElementsByClassName('timing')[0];
     // 排除不限时练习的情况，忽略已结束的练习
     if (quizTime != undefined && quizTime.className == 'timing willEnd') {
-        unlimitQuiz = true; // 提示用户存在不限时练习
+        //unlimitQuiz = true; // 提示用户存在不限时练习
         quizTime = null;
     } else if (quizTime != undefined) {
         if (quizTime.innerText == '作答已结束' || quizTime.innerText == '倒计时 --:--') {
@@ -117,12 +117,13 @@ function createQr(targetUri) {
 // 创建用于推送的讯息并推送出去
 function createMsg() {
     // 检查不限时练习存在情况
+    var freeQuiz, timeRemain;
     if (unlimitQuiz == true) {
-        var freeQuiz = '存在';
-        var timeRemain = '未知'
+        freeQuiz = '存在';
+        timeRemain = '未知'
     } else {
-        var freeQuiz = '不存在';
-        var timeRemain = document.getElementsByClassName('timing')[0].innerText
+        freeQuiz = '不存在';
+        timeRemain = document.getElementsByClassName('timing')[0].innerText
     }
     // 准备渲染即时讯息模板
     var pcLink = window.location.href;
@@ -147,9 +148,10 @@ function createMsg() {
                 '\n\n[PC 端课程链接](' + pcLink + ')' +
                 '\n\n[移动端课程链接](' + mobiLink + ')' +
                 '\n\n移动端亦可在下方扫码进入' +
-                '\n\n![QR-Code][' + createQr(mobiLink) + ']' +
+                '\n\n![QR-Code][myqrcode]' +
                 '\n\n在限时练习未结束前，本讯息 30s 后会再次推送' +
-                '\n\n以上资讯仅供参考，发送自：' + myKeyword
+                '\n\n以上资讯仅供参考，发送自：' + myKeyword +
+                '\n\n[myqrcode]:createQr(mobiLink)'
         }
     };
     // 调用发送函数
