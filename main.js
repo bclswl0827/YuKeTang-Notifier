@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         雨阔塘课堂限时练习提醒
 // @description  雨阔塘课堂限时练习提醒
-// @version      v1.0.0
+// @version      v1.1.0
 // @license      MIT
 // @require      https://cdn.staticfile.org/jquery/3.5.1/jquery.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js
@@ -23,9 +23,6 @@ var myInterval = 60
 // 钉钉机器人 API 地址
 var myApi = 'https://d.ibcl.us/robot/send?access_token=' + myToken;
 
-// 封面随机图片 API
-var myCover = 'https://api.isoyu.com/bing_images.php';
-
 // 图床 API
 var imgApi = 'https://imgurl.org/upload/aws_s3';
 
@@ -43,8 +40,8 @@ if (!document.getElementById('qrcode')) {
 
 // 初始化二维码对象
 var myQrcode = new QRCode(document.getElementById('qrcode'), {
-    width: 150,
-    height: 150,
+    width: 128,
+    height: 128,
     // 二维码前景色
     colorDark: '#6A1A4C',
     // 二维码背景色
@@ -118,7 +115,7 @@ function listenQuiz() {
                     type: '限时选择题',
                     remain: document.getElementsByClassName('timing timing--number')[0].innerText
                 }
-            } else if (timeCount.innerText.includes('倒计时') && !timeCount.innerText.includes('结束') && submitBotton.innerText.includes('作答')) {
+            } else if (timeCount.innerText.includes('倒计时') && timeCount.innerText.includes('结束') != true && submitBotton.innerText.includes('作答')) {
                 // 直到倒计时不为「倒计时 --:--」跳出循环
                 for (var i = 0; i < 5; i++) {
                     if (document.getElementsByClassName('timing timing--number')[0].innerText != '倒计时 --:--') {
@@ -136,7 +133,7 @@ function listenQuiz() {
             }
         } else if (quizClass == 'timing willEnd') {
             submitBotton = document.getElementsByClassName('slide__shape submit-btn')[0];
-            if (submitBotton.innerText.includes('提交') && !timeCount.innerText.includes('结束')) {
+            if (submitBotton.innerText.includes('提交') && !document.getElementsByClassName('timing timing--number')[0]) {
                 quizType = {
                     type: '不限时选择题',
                     remain: '不限时'
@@ -160,7 +157,8 @@ function listenQuiz() {
         if (quizInfo && quizInfo.remain == quizCheck().remain) {
             console.log('检测到有题目');
             // 检查当前是否有弹窗提醒，有则先前往弹窗
-            if (document.getElementsByClassName('pl10 f16 cfff')[0]) {
+            var quizNotifier = document.getElementsByClassName('pl10 f16 cfff')[0];
+            if (quizNotifier && quizNotifier.innerText == 'Hi, 你有新的课堂习题') {
                 document.getElementsByClassName('box-start')[0].click();
             }
         } else {
@@ -231,20 +229,20 @@ function createMsg(quizInfo) {
         },
         markdown: {
             title: '快！有新题目啦',
-            text: '![thumbnail](' + myCover + ')' +
+            text: '![QR Code](' + codeUrl + ')' +
                 '\n\n## 来活了，别摸鱼啦！' +
                 '\n\n当前时间：' + getTime() +
-                '\n\n这是本堂课的第 ' + document.getElementsByClassName('timeline__footer box-between cfff').length + ' 个问题' +
-                '\n\n练习类型：' + quizInfo.type +
-                '\n\n距结束还有：' + document.getElementsByClassName('timing timing--number')[0].innerText +
-                '\n\n当前科目：「' + document.getElementsByTagName('title')[0].innerText + '」' +
-                '\n\n当前课程：「' + document.getElementsByClassName('f16')[0].innerText + '」' +
                 '\n\n[PC 端课程链接](' + pcLink + ')' +
                 '\n\n[移动端课程链接](' + mobiLink + ')' +
-                '\n\n移动端亦可在下方扫码进入' +
-                '\n\n![QR-Code][' + codeUrl + ']' +
+                '\n\n移动端亦可在上方扫码进入' +
+                '\n\n当前科目：「' + document.getElementsByTagName('title')[0].innerText + '」' +
+                '\n\n当前课程：「' + document.getElementsByClassName('f16')[0].innerText + '」' +
+                '\n\n问题类型：' + quizInfo.type +
+                '\n\n这是本堂课的第 ' + document.getElementsByClassName('timeline__footer box-between cfff').length + ' 个问题' +
+                '\n\n距结束还剩下：' + document.getElementsByClassName('timing timing--number')[0].innerText +
                 '\n\n在限时练习未结束前，本讯息 60s 后会再次推送' +
-                '\n\n以上资讯仅供参考，发送自：' + myKeyword
+                '\n\n以上资讯仅供参考可能存在不准确的情况' +
+                '\n\n发送自：' + myKeyword
         }
     };
     // 调用发送函数
@@ -254,8 +252,8 @@ function createMsg(quizInfo) {
 // 获取题目发布的时间
 function getTime() {
     var timeNow = new Date();
-    var getMonth = (timeNow.getMonth() + 1).toString().padStart(2, '0');
-    var getDate = timeNow.getDate().toString().padStart(2, '0');
+    var getMonth = (timeNow.getMonth() + 1).toString();
+    var getDate = timeNow.getDate().toString();
     var getHour = timeNow.getHours().toString().padStart(2, '0');
     var getMinute = timeNow.getMinutes().toString().padStart(2, '0');
     var currentTime = getMonth + ' 月 ' + getDate + ' 日 ' + getHour + ':' + getMinute;
