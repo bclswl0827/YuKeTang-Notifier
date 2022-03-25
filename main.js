@@ -80,7 +80,13 @@ function convertLink(pcLink) {
     }
     var classId = longString(pcLink.match(/\d{2,}/g));
     var exerciseId = pcLink.match(/\/(exercise|blank)\/\d*/g);
-    var mobiLink = 'https://changjiang.yuketang.cn/lesson/student/v3/' + classId
+    var mobiLink;
+    // 检查 ID 长度，v3 版本 ID 比较长，之前的版本 ID 比较短，不同版本移动端 URL 亦不同
+    if (classId.length < 15) {
+         mobiLink = 'https://changjiang.yuketang.cn/lesson/student/' + classId;
+    } else {
+         mobiLink = 'https://changjiang.yuketang.cn/lesson/student/v3/' + classId;
+    }
     if (exerciseId) mobiLink += exerciseId[0];
     return mobiLink;
 }
@@ -240,7 +246,7 @@ function createMsg(quizInfo) {
                 '\n\n问题类型：' + quizInfo.type +
                 '\n\n这是本堂课的第 ' + document.getElementsByClassName('timeline__footer box-between cfff').length + ' 个问题' +
                 '\n\n距结束还剩下：' + document.getElementsByClassName('timing timing--number')[0].innerText +
-                '\n\n在限时练习未结束前，本讯息 60s 后会再次推送' +
+                '\n\n在限时练习未结束前，本讯息 '+ myInterval +' 秒后会再次推送' +
                 '\n\n以上资讯仅供参考可能存在不准确的情况' +
                 '\n\n发送自：' + myKeyword
         }
