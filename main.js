@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         雨阔塘课堂限时练习提醒
 // @description  雨阔塘课堂限时练习提醒
-// @version      v1.1.0
+// @version      v1.8.0
 // @license      MIT
 // @require      https://cdn.staticfile.org/jquery/3.5.1/jquery.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js
