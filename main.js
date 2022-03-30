@@ -18,16 +18,25 @@ var myToken = '';
 // 触发机器人用的关键字
 var myKeyword = '';
 // 发两次提醒的间隔时间（秒）
-var myInterval = 60
+var myInterval = 60;
 
-// 钉钉机器人 API 地址
+// 钉钉机器人 API 地址（需要反向代理解决 CORS 错误）
 var myApi = 'https://d.ibcl.us/robot/send?access_token=' + myToken;
 
-// 图床 API
-var imgApi = 'https://imgurl.org/upload/aws_s3';
+// 图床 API（用雨阔塘自家的图床 API）
+var imgApi = 'https://changjiang.yuketang.cn/oplat/ueditor/ue?action=uploadimage&encode=utf-8';
+//var imgApi = 'https://imgurl.org/upload/aws_s3';
 
 // 记录是否推送的 Flag，默认 false
 var isSent = false;
+
+// 先检查老师的雨课堂版本
+var softVer;
+if (window.location.href.includes('v3')) {
+    softVer = 'v3';
+} else {
+    softVer = 'v2';
+}
 
 // 若不存在 id 为 qrcode 的 div，则创建
 if (!document.getElementById('qrcode')) {
@@ -35,13 +44,14 @@ if (!document.getElementById('qrcode')) {
     var currentNode = document.getElementById('app');
     var newNode = document.createElement('div');
     newNode.setAttribute('id', 'qrcode');
+    newNode.setAttribute('style', 'display: none');
     currentNode.parentNode.insertBefore(newNode, currentNode.nextSibling);
 }
 
 // 初始化二维码对象
 var myQrcode = new QRCode(document.getElementById('qrcode'), {
-    width: 128,
-    height: 128,
+    width: 100,
+    height: 100,
     // 二维码前景色
     colorDark: '#6A1A4C',
     // 二维码背景色
@@ -59,13 +69,6 @@ function checkSent() {
 // 构造定时器，重置 Flag
 setInterval(checkSent(), myInterval * 1000);
 
-// 模拟 sleep
-function fakeSleep(time) {
-    const start = new Date().getTime();
-    while (new Date().getTime() - start < time) { }
-    return;
-}
-
 // 构造移动端 URL
 function convertLink(pcLink) {
     // 寻找数组中最长字符串作为 ID
@@ -78,106 +81,168 @@ function convertLink(pcLink) {
         }
         return longest;
     }
+    // 正则匹配课程 ID，ID 一般蛮长的，所以提取出来取最长的字符串即为 ID
     var classId = longString(pcLink.match(/\d{2,}/g));
+    // 正则匹配
     var exerciseId = pcLink.match(/\/(exercise|blank)\/\d*/g);
     var mobiLink;
-    // 检查 ID 长度，v3 版本 ID 比较长，之前的版本 ID 比较短，不同版本移动端 URL 亦不同
+    // 检查 ID 长度，v3 版本 ID 比 v2 长，不同版本移动端 URL 亦不同
     if (classId.length < 15) {
-         mobiLink = 'https://changjiang.yuketang.cn/lesson/student/' + classId;
+        mobiLink = 'https://changjiang.yuketang.cn/lesson/student/' + classId;
     } else {
-         mobiLink = 'https://changjiang.yuketang.cn/lesson/student/v3/' + classId;
+        mobiLink = 'https://changjiang.yuketang.cn/lesson/student/v3/' + classId;
     }
     if (exerciseId) mobiLink += exerciseId[0];
     return mobiLink;
 }
 
-// 检测是否存在随堂练习的 class
-function listenQuiz() {
-    // 先为当前页面创建二维码
-    myQrcode.makeCode(convertLink(window.location.href));
-    // 获取题目类型
-    // 限时选择题（没有名为 timing willEnd 的 class && 有倒计时 class && 倒计时内容有关键字「倒计时」 && slide__shape submit-btn 内文含有关键字「提交」）
-    // 限时填空题（没有名为 timing willEnd 的 class && 有倒计时 class && 倒计时内容有关键字「倒计时」 && slide__shape submit-btn 内文含有关键字「作答」）
-    // 不限时选择题（有名为 timing willEnd 的 class && slide__shape submit-btn 内文含有关键字「提交」）
-    // 不限时填空题（有名为 timing willEnd 的 class && slide__shape submit-btn 内文含有关键字「作答」）
-    function quizCheck() {
-        var quizClass = document.getElementsByClassName('timing')[0].className, quizType, timeRemain;
+// 获取题目类型（v3 版本）
+function quizCheck(softVer) {
+    // V3 版本格式
+    var quizClass = document.getElementsByClassName('timing')[0].className, quizType, timeRemain;
+    if (softVer == 'v3') {
+        // 限时选择题（没有名为 timing willEnd 的 class && 有倒计时 class && 倒计时内容有关键字「倒计时」 && slide__shape submit-btn 内文含有关键字「提交」）
         if (quizClass != 'timing willEnd' && document.getElementsByClassName('timing timing--number')[0]) {
             var timeCount = document.getElementsByClassName('timing timing--number')[0],
                 submitBotton = document.getElementsByClassName('slide__shape submit-btn')[0];
             if (timeCount.innerText.includes('倒计时') && submitBotton.innerText.includes('提交')) {
-                // 直到倒计时不为「倒计时 --:--」跳出循环
-                for (var i = 0; i < 5; i++) {
+                // 若倒计时未显示则提供一个大致时间范围
+                if (document.getElementsByClassName('timing timing--number')[0].innerText.includes('--:--')) {
+                    timeRemain = '约 1-5 分钟';
+                } else {
                     timeRemain = document.getElementsByClassName('timing timing--number')[0].innerText;
-                    if (document.getElementsByClassName('timing timing--number')[0].innerText != '倒计时 --:--') {
-                        timeRemain = document.getElementsByClassName('timing timing--number')[0].innerText;
-                        break;
-                    } else {
-                        fakeSleep(200);
-                    }
                 }
                 // 返回题目类型及剩余时间
                 quizType = {
                     type: '限时选择题',
-                    remain: document.getElementsByClassName('timing timing--number')[0].innerText
+                    remain: timeRemain
                 }
-            } else if (timeCount.innerText.includes('倒计时') && timeCount.innerText.includes('结束') != true && submitBotton.innerText.includes('作答')) {
-                // 直到倒计时不为「倒计时 --:--」跳出循环
-                for (var i = 0; i < 5; i++) {
-                    if (document.getElementsByClassName('timing timing--number')[0].innerText != '倒计时 --:--') {
-                        timeRemain = document.getElementsByClassName('timing timing--number')[0].innerText;
-                        break;
-                    } else {
-                        fakeSleep(200);
-                    }
+            } else if (timeCount.innerText.includes('倒计时') && timeCount.innerText.includes('结束') != true && submitBotton.innerText.includes('作答')) { // 限时填空题（没有名为 timing willEnd 的 class && 有倒计时 class && 倒计时内容有关键字「倒计时」 && slide__shape submit-btn 内文含有关键字「作答」）
+                // 若倒计时未显示则提供一个大致时间范围
+                if (document.getElementsByClassName('timing timing--number')[0].innerText.includes('--:--')) {
+                    timeRemain = '约 1-5 分钟';
+                } else {
+                    timeRemain = document.getElementsByClassName('timing timing--number')[0].innerText;
                 }
                 // 返回题目类型及剩余时间
                 quizType = {
                     type: '限时填空题',
-                    remain: document.getElementsByClassName('timing timing--number')[0].innerText
+                    remain: timeRemain
                 }
             }
-        } else if (quizClass == 'timing willEnd') {
+        } else if (quizClass == 'timing willEnd') { // 不限时选择题（有名为 timing willEnd 的 class && slide__shape submit-btn 内文含有关键字「提交」）
             submitBotton = document.getElementsByClassName('slide__shape submit-btn')[0];
             if (submitBotton.innerText.includes('提交') && !document.getElementsByClassName('timing timing--number')[0]) {
                 quizType = {
                     type: '不限时选择题',
                     remain: '不限时'
                 }
-            } else {
+            } else { // 不限时填空题（有名为 timing willEnd 的 class && slide__shape submit-btn 内文含有关键字「作答」）
                 quizType = {
                     type: '不限时填空题',
                     remain: '不限时'
                 }
             }
         }
-        return quizType;
+    } else { // 否则为 V2 版本格式
+        // 限时选择题（有 timing--number f32 这个 class && 有个 exercise-options 的 class）
+        if (document.getElementsByClassName('timing--number f32')[0] && document.getElementsByClassName('exercise-options')[0]) {
+            if (document.getElementsByClassName('timing--number f32')[0].innerText.includes('00:00')) {
+                timeRemain = '约 1-5 分钟';
+                quizType = {
+                    type: '限时选择题',
+                    remain: timeRemain
+                }
+            } else {
+                timeRemain = document.getElementsByClassName('timing--number f32')[0].innerText;
+                quizType = {
+                    type: '限时选择题',
+                    remain: timeRemain
+                }
+            }
+        } else if (document.getElementsByClassName('timing--number f32')[0] && document.getElementsByClassName('blanks__header f20')[0]) { // 限时填空题（有 timing--number f32 这个 class && 有个 blanks__header f20 的 class）
+            if (document.getElementsByClassName('timing--number f32')[0].innerText.includes('00:00')) {
+                timeRemain = '约 1-5 分钟';
+                quizType = {
+                    type: '限时填空题',
+                    remain: timeRemain
+                }
+            } else {
+                timeRemain = document.getElementsByClassName('timing--number f32')[0].innerText;
+                quizType = {
+                    type: '限时填空题',
+                    remain: timeRemain
+                }
+            }
+        } else if (document.getElementsByClassName('timing')[0].className == 'timing f24' && document.getElementsByClassName('exercise-options')) { // 不限时选择题（有名为 timing f24 的 class && 有个 exercise-options 的 class）
+            quizType = {
+                type: '不限时选择题',
+                remain: '不限时'
+            }
+        } else if (document.getElementsByClassName('timing')[0].className == 'timing f24' && document.getElementsByClassName('blanks__header f20')) { // 不限时选择题（有名为 timing f24 的 class && 有名为 blanks__header f20 的 class）
+            quizType = {
+                type: '不限时填空题',
+                remain: '不限时'
+            }
+        }
     }
-    // 先判断目前是否普通课件页面（无 slide__shape submit-btn）（ && 有名为 timing willEnd 的 class）
-    if (!document.getElementsByClassName('slide__shape submit-btn')[0]) {//&& document.getElementsByClassName('timing')[0].className == 'timing willEnd') {
-        console.log('当前为普通课件');
-        return listenQuiz;
-    } else {
-        // 做一次校验
-        var quizInfo = quizCheck();
-        if (quizInfo && quizInfo.remain == quizCheck().remain) {
-            console.log('检测到有题目');
+    return quizType;
+}
+
+
+// 检测是否存在随堂练习的 class
+function listenQuiz() {
+    // 先为当前页面创建二维码
+    myQrcode.makeCode(convertLink(window.location.href));
+    // 先判断目前是否普通课件页面（无 slide__shape submit-btn || 无 submit-btn f18）（ && 有名为 timing willEnd 的 class）
+    if (softVer == 'v3') {
+        if (!document.getElementsByClassName('slide__shape submit-btn')[0]) { //&& document.getElementsByClassName('timing')[0].className == 'timing willEnd') {
+            console.log('当前为普通课件');
+            return listenQuiz;
+        } else {
             // 检查当前是否有弹窗提醒，有则先前往弹窗
             var quizNotifier = document.getElementsByClassName('pl10 f16 cfff')[0];
             if (quizNotifier && quizNotifier.innerText == 'Hi, 你有新的课堂习题') {
                 document.getElementsByClassName('box-start')[0].click();
             }
-        } else {
-            console.log('本题已经过期，忽略');
-            return listenQuiz;
+            // 做一次校验，提高准确率
+            var quizInfo = quizCheck(softVer);
+            if (quizInfo && quizInfo.remain == quizCheck(softVer).remain) {
+                console.log('检测到有题目');
+            } else {
+                console.log('本题已经过期，忽略');
+                return listenQuiz;
+            }
+            console.log(quizInfo);
+            createMsg(quizInfo);
         }
-        createMsg(quizInfo);
+    } else {
+        if (!document.getElementsByClassName('submit-btn f18')[0]) { //&& document.getElementsByClassName('timing')[0].className == 'timing willEnd') {
+            console.log('当前为普通课件');
+            return listenQuiz;
+        } else {
+            // 检查当前是否有弹窗提醒，有则先前往弹窗
+            var quizNotifier = document.getElementsByClassName('pl10 f16 cfff')[0];
+            if (quizNotifier && quizNotifier.innerText == 'Hi, 你有新的课堂习题') {
+                document.getElementsByClassName('box-start')[0].click();
+            }
+            // 做一次校验，提高准确率
+            var quizInfo = quizCheck(softVer);
+            if (quizInfo && quizInfo.remain == quizCheck(softVer).remain) {
+                console.log('检测到有题目');
+            } else {
+                console.log('本题已经过期，忽略');
+                return listenQuiz;
+            }
+            console.log(quizInfo);
+            createMsg(quizInfo);
+        }
     }
     return listenQuiz;
 }
 
-// 构造定时器，1s 跑一次
-setInterval(listenQuiz(), 1000);
+// 构造定时器，2s 跑一次
+setInterval(listenQuiz(), 2000);
 
 // 上传二维码到图床
 function uploadCode(data) {
@@ -186,18 +251,18 @@ function uploadCode(data) {
         // 去掉 Base64 的头部信息，并转换为 Byte
         var split = base64Data.split(',');
         var bytes = window.atob(split[1]);
-        // 处理异常,将 ASCii 码小于 0 的转换为大于 0
+        // 处理异常，将 ASCii 码小于 0 的转换为大于 0
         var ab = new ArrayBuffer(bytes.length);
         var ia = new Uint8Array(ab);
         for (var i = 0; i < bytes.length; i++) {
             ia[i] = bytes.charCodeAt(i);
         }
-        // 获取文件类型
+        // 获取文件类型，从 Base64 前缀中提取
         return new Blob([ab], {
             type: split[0].match(/:(.*?);/)[1]
         });
     }
-    // 避免大量请求，限制请求在 isSent 为 false 时才执行
+    // 避免大量请求导致滥用 API，限制请求在变量 isSent 为 false 时才执行
     if (!isSent) {
         var myCode = convertBase64(data);
         var formData = new FormData();
@@ -220,6 +285,16 @@ function uploadCode(data) {
     return codeUrl;
 }
 
+// 若是选择题，则随机给一个选项
+function myOption() {
+    var e = 1,
+        t = "ABCD",
+        a = t.length,
+        n = "";
+    for (var i = 0; i < e; i++) n += t.charAt(Math.floor(Math.random() * a));
+    return n;
+}
+
 // 创建用于推送的讯息并推送出去
 function createMsg(quizInfo) {
     // 准备渲染即时讯息模板
@@ -235,6 +310,7 @@ function createMsg(quizInfo) {
         },
         markdown: {
             title: '快！有新题目啦',
+            // 配图为二维码
             text: '![QR Code](' + codeUrl + ')' +
                 '\n\n## 来活了，别摸鱼啦！' +
                 '\n\n当前时间：' + getTime() +
@@ -245,14 +321,17 @@ function createMsg(quizInfo) {
                 '\n\n当前课程：「' + document.getElementsByClassName('f16')[0].innerText + '」' +
                 '\n\n问题类型：' + quizInfo.type +
                 '\n\n这是本堂课的第 ' + document.getElementsByClassName('timeline__footer box-between cfff').length + ' 个问题' +
-                '\n\n距结束还剩下：' + document.getElementsByClassName('timing timing--number')[0].innerText +
-                '\n\n在限时练习未结束前，本讯息 '+ myInterval +' 秒后会再次推送' +
+                '\n\n距结束还剩下：' + quizInfo.remain +
+                '\n\n针对选择题给出的随机值：' + myOption() +
+                '\n\n监控者未完成该练习前，本讯息 ' + myInterval + ' 秒后将再次推送' +
                 '\n\n以上资讯仅供参考可能存在不准确的情况' +
+                '\n\n老师所用雨课堂版本：' + softVer +
                 '\n\n发送自：' + myKeyword
         }
     };
-    // 调用发送函数
-    pushMsg(myApi, myMsg);
+    // 若监控者已完成则不调用推送函数
+    if (quizInfo.remain != '已完成')
+        pushMsg(myApi, myMsg);
 }
 
 // 获取题目发布的时间
