@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         雨阔塘课堂限时练习提醒
 // @description  雨阔塘课堂限时练习提醒
-// @version      v1.1.0
+// @version      v1.8.0
 // @license      MIT
 // @require      https://cdn.staticfile.org/jquery/3.5.1/jquery.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js
@@ -363,3 +363,16 @@ function pushMsg(myApi, sendMsg) {
         isSent = true;
     }
 }
+
+// 答题完成后，移除按钮，避免继续发送
+function removeButton() {
+    var submitBotton = document.querySelector('p[class="submit-btn f18"]')
+    if (submitBotton) {
+        if (submitBotton.innerText.includes('成功'))
+            submitBotton.parentNode.removeChild(submitBotton);
+    }
+    return removeButton;
+}
+
+// 1s 跑一次
+setInterval(removeButton(), 1000);
