@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         雨阔塘课堂限时练习提醒
 // @description  雨阔塘课堂限时练习提醒
-// @version      v1.8.0
+// @version      v2.0
 // @license      MIT
 // @require      https://cdn.staticfile.org/jquery/3.5.1/jquery.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js
@@ -18,7 +18,28 @@ var myToken = '';
 // 触发机器人用的关键字
 var myKeyword = '';
 // 发两次提醒的间隔时间（秒）
-var myInterval = 60;
+var myInterval = 90;
+// 是否监听弹幕
+var danmuEnabled = false;
+
+// 存入 Cookies（）
+function setCookie(cookieName, cookieValue, expireDays) {
+    var d = new Date();
+    d.setTime(d.getTime() + (expireDays * 24 * 60 * 60 * 1000));
+    var expires = 'expires=' + d.toGMTString();
+    document.cookie = cookieName + '=' + cookieValue + '; ' + expires;
+}
+
+// 获取 Cookies
+function getCookie(cookieName) {
+    var name = cookieName + '=';
+    var ca = document.cookie.split(';');
+    for (var i = 0; i < ca.length; i++) {
+        var c = ca[i].trim();
+        if (c.indexOf(name) == 0) return c.substring(name.length, c.length);
+    }
+    return '';
+}
 
 // 钉钉机器人 API 地址（需要反向代理解决 CORS 错误）
 var myApi = 'https://d.ibcl.us/robot/send?access_token=' + myToken;
@@ -28,7 +49,12 @@ var imgApi = 'https://changjiang.yuketang.cn/oplat/ueditor/ue?action=uploadimage
 //var imgApi = 'https://imgurl.org/upload/aws_s3';
 
 // 记录是否推送的 Flag，默认 false
-var isSent = false;
+var quizSent = false,
+    danmuSent = false;
+
+// 透过 Cookie 记录最后一个被点名的人，有效期一天
+if (getCookie('lastPerson').length == 0)
+    setCookie('lastPerson', '', 1);
 
 // 先检查老师的雨课堂版本
 var softVer;
@@ -62,7 +88,8 @@ var myQrcode = new QRCode(document.getElementById('qrcode'), {
 
 // 判断前 30s 是否已经推送过
 function checkSent() {
-    isSent = false;
+    quizSent = false;
+    danmuSent = false;
     return checkSent;
 }
 
@@ -72,7 +99,7 @@ setInterval(checkSent(), myInterval * 1000);
 // 构造移动端 URL
 function convertLink(pcLink) {
     // 寻找数组中最长字符串作为 ID
-    longString = function (arr) {
+    longString = function(arr) {
         let longest = arr[0];
         for (let i = 1; i < arr.length; i++) {
             if (arr[i].length > longest.length) {
@@ -99,7 +126,8 @@ function convertLink(pcLink) {
 // 获取题目类型（v3 版本）
 function quizCheck(softVer) {
     // V3 版本格式
-    var quizClass = document.getElementsByClassName('timing')[0].className, quizType, timeRemain;
+    var quizClass = document.getElementsByClassName('timing')[0].className,
+        quizType, timeRemain;
     if (softVer == 'v3') {
         // 限时选择题（没有名为 timing willEnd 的 class && 有倒计时 class && 倒计时内容有关键字「倒计时」 && slide__shape submit-btn 内文含有关键字「提交」）
         if (quizClass != 'timing willEnd' && document.getElementsByClassName('timing timing--number')[0]) {
@@ -242,7 +270,7 @@ function listenQuiz() {
 }
 
 // 构造定时器，2s 跑一次
-setInterval(listenQuiz(), 2000);
+setInterval(listenQuiz(), 1000);
 
 // 上传二维码到图床
 function uploadCode(data) {
@@ -262,14 +290,14 @@ function uploadCode(data) {
             type: split[0].match(/:(.*?);/)[1]
         });
     }
-    // 避免大量请求导致滥用 API，限制请求在变量 isSent 为 false 时才执行
-    if (!isSent) {
+    // 避免大量请求导致滥用 API，限制请求在变量 quizSent 为 false 时才执行
+    if (!quizSent) {
         var myCode = convertBase64(data);
         var formData = new FormData();
         var fileBlob = new File([myCode], (new Date()).valueOf() + '.png');
         var codeUrl = '';
-        formData.append("file", fileBlob);
-        formData.append("bizType", "9");
+        formData.append('file', fileBlob);
+        formData.append('bizType', '9');
         $.ajax({
             type: 'POST',
             data: formData,
@@ -277,7 +305,7 @@ function uploadCode(data) {
             processData: false,
             contentType: false,
             async: false,
-            success: function (data) {
+            success: function(data) {
                 codeUrl = data.url;
             }
         });
@@ -288,9 +316,9 @@ function uploadCode(data) {
 // 若是选择题，则随机给一个选项
 function myOption() {
     var e = 1,
-        t = "ABCD",
+        t = 'ABCD',
         a = t.length,
-        n = "";
+        n = '';
     for (var i = 0; i < e; i++) n += t.charAt(Math.floor(Math.random() * a));
     return n;
 }
@@ -324,7 +352,7 @@ function createMsg(quizInfo) {
                 '\n\n距结束还剩下：' + quizInfo.remain +
                 '\n\n针对选择题给出的随机值：' + myOption() +
                 '\n\n监控者未完成该练习前，本讯息 ' + myInterval + ' 秒后将再次推送' +
-                '\n\n以上资讯仅供参考可能存在不准确的情况' +
+                '\n\n以上资讯仅供参考，可能存在不准确的情况' +
                 '\n\n老师所用雨课堂版本：' + softVer +
                 '\n\n发送自：' + myKeyword
         }
@@ -348,21 +376,142 @@ function getTime() {
 // 推送讯息到钉钉
 function pushMsg(myApi, sendMsg) {
     // 先判断之前是否已经推送
-    if (isSent == false) {
+    if (quizSent == false) {
         $.ajax({
-            contentType: "application/json; charset=utf-8",
+            contentType: 'application/json; charset=utf-8',
             dataType: 'json',
             type: 'POST',
             async: true,
             url: myApi,
             data: JSON.stringify(sendMsg)
         });
-        console.log(sendMsg);
         console.log('已经推送到钉钉群');
-        // 最后将 isSent 改为 true
-        isSent = true;
+        // 最后将 quizSent 改为 true
+        quizSent = true;
     }
 }
+
+// 点名时推送讯息提醒被点到的人
+function rollcallNotifier() {
+    // 为中文和数字之间添加一个空格
+    function autoSpacing(str) {
+        var p1 = /([\dA-Za-z_])([\u4e00-\u9fa5]+)/gi,
+            p2 = /([\u4e00-\u9fa5]+)([\dA-Za-z_])/gi;
+        return str.replace(p1, '$1 $2').replace(p2, '$1 $2')
+    }
+    var classInfo = document.querySelectorAll('div[class="timeline__msg f12"]'),
+        randomRollcall = [];
+    for (var i = 0; i < classInfo.length; i++)
+        if (classInfo[i].title.includes('随机点名选中'))
+            randomRollcall.push(autoSpacing(classInfo[i].title));
+    // 当本次与上次抽中的人名不一样，才会推送
+    if (randomRollcall.length > 0 && randomRollcall.slice(-1)[0].slice(7) != getCookie('lastPerson')) {
+        console.log('有人被随机点名了');
+        // 准备渲染即时讯息模板
+        var pcLink = window.location.href;
+        var mobiLink = convertLink(pcLink);
+        //var codeUrl = uploadCode(document.getElementById('qrcode').childNodes[1].getAttribute('src'));
+        $.ajax({
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
+            type: 'POST',
+            async: true,
+            url: myApi,
+            data: JSON.stringify({
+                // MarkDown 格式
+                msgtype: 'markdown',
+                at: {
+                    // [at] 所有人
+                    isAtAll: true
+                },
+                markdown: {
+                    title: '快！有人被点名了！',
+                    // 配图为二维码
+                    text: //'![QR Code](' + codeUrl + ')' +
+                        '## ' + randomRollcall.slice(-1)[0].slice(7) + ' 被点名' +
+                        '\n\n当前时间：' + getTime() +
+                        '\n\n[PC 端课程链接](' + pcLink + ')' +
+                        '\n\n[移动端课程链接](' + mobiLink + ')' +
+                        //'\n\n移动端亦可在上方扫码进入' +
+                        '\n\n当前科目：「' + document.getElementsByTagName('title')[0].innerText + '」' +
+                        '\n\n当前课程：「' + document.getElementsByClassName('f16')[0].innerText + '」' +
+                        '\n\n本讯息只推送一次，以上资讯仅供参考' +
+                        '\n\n老师所用雨课堂版本：' + softVer +
+                        '\n\n发送自：' + myKeyword
+                }
+            })
+        });
+        console.log('已经推送到钉钉群');
+        // 将这个人保存到 Cookie，并清空数组
+        setCookie('lastPerson', randomRollcall.slice(-1)[0].slice(7), 1);
+        randomRollcall = [];
+    } else {
+        console.log('没有随机点名');
+    }
+    return rollcallNotifier;
+}
+
+// 1 秒检测一次
+setInterval(rollcallNotifier(), 1000);
+
+// 检测弹幕，并推送提醒
+function listenDanmu() {
+    // 获取第一条弹幕内容，然后推送到群里
+    var danmuExist = document.getElementsByClassName('danmu--text f12'), // v3 版本
+        _danmuExist = document.getElementsByClassName('danmu-live J_danmu_live')[0]; // v2 版本
+    // 获取弹幕内容
+    if ((danmuExist.length > 0 || _danmuExist.innerText.length > 0) && !danmuSent) {
+        console.log('捕获到弹幕');
+        var danmuText;
+        if (danmuExist.length > 0) {
+            danmuText = danmuExist[0].innerText;
+        } else {
+            danmuText = _danmuExist[0].innerText.split('\n')[0];
+        }
+        // 准备渲染即时讯息模板
+        var pcLink = window.location.href;
+        var mobiLink = convertLink(pcLink);
+        var codeUrl = uploadCode(document.getElementById('qrcode').childNodes[1].getAttribute('src'));
+        $.ajax({
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
+            type: 'POST',
+            async: true,
+            url: myApi,
+            data: JSON.stringify({
+                // MarkDown 格式
+                msgtype: 'markdown',
+                at: {
+                    // 不 [at] 所有人
+                    isAtAll: false
+                },
+                markdown: {
+                    title: '注意！有人在发弹幕',
+                    // 配图为二维码
+                    text: '![QR Code](' + codeUrl + ')' +
+                        '\n\n## 有人刚刚发了弹幕，跟一下？' +
+                        '\n\n弹幕内容：**' + danmuText + '**' +
+                        '\n\n当前时间：' + getTime() +
+                        '\n\n[PC 端课程链接](' + pcLink + ')' +
+                        '\n\n[移动端课程链接](' + mobiLink + ')' +
+                        '\n\n移动端亦可在上方扫码进入' +
+                        '\n\n当前科目：「' + document.getElementsByTagName('title')[0].innerText + '」' +
+                        '\n\n当前课程：「' + document.getElementsByClassName('f16')[0].innerText + '」' +
+                        '\n\n本讯息仅供参考' +
+                        '\n\n老师所用雨课堂版本：' + softVer +
+                        '\n\n发送自：' + myKeyword
+                }
+            })
+        });
+        console.log('已经推送到钉钉群');
+        danmuSent = true;
+    }
+    return listenDanmu;
+}
+
+// 1s 跑一次
+if (danmuEnabled)
+    setInterval(listenDanmu(), 1000);
 
 // 答题完成后，移除按钮，避免继续发送
 function removeButton() {
